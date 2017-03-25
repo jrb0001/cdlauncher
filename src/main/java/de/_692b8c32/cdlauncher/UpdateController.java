@@ -1,0 +1,138 @@
+/*
+ * Copyright (C) 2017 Jean-Rémy Buchs <jrb0001@692b8c32.de>
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ */
+package de._692b8c32.cdlauncher;
+
+import de._692b8c32.cdlauncher.tasks.ExtractZipTask;
+import de._692b8c32.cdlauncher.tasks.GITCheckoutTask;
+import de._692b8c32.cdlauncher.tasks.GITUpdateTask;
+import de._692b8c32.cdlauncher.tasks.GoogleDownloadTask;
+import de._692b8c32.cdlauncher.tasks.RunExternalCommand;
+import de._692b8c32.cdlauncher.tasks.SetOptionsTask;
+import de._692b8c32.cdlauncher.tasks.TaskProgress;
+import java.io.File;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.ResourceBundle;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.prefs.Preferences;
+import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.beans.property.ReadOnlyObjectWrapper;
+import javafx.collections.FXCollections;
+import javafx.fxml.FXML;
+import javafx.fxml.Initializable;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.cell.ProgressBarTableCell;
+
+/**
+ *
+ * @author Jean-Rémy Buchs <jrb0001@692b8c32.de>
+ */
+public class UpdateController implements Initializable {
+
+    @FXML
+    private TableView<TaskProgress> progressTable;
+    @FXML
+    private TableColumn<TaskProgress, String> nameColumn;
+    @FXML
+    private TableColumn<TaskProgress, Double> progressColumn;
+
+    private final Application application;
+    private final Preferences preferences;
+
+    public UpdateController(Application application, Preferences preferences) {
+        this.application = application;
+        this.preferences = preferences;
+    }
+
+    @Override
+    public void initialize(URL location, ResourceBundle resources) {
+        File oraSourceCache = new File(preferences.get("basedir", null), "ora.git");
+        File oraBinaryCache = new File(preferences.get("basedir", null), "ora.zip");
+        File asCache = new File(preferences.get("basedir", null), "as.git");
+        File cdCache = new File(preferences.get("basedir", null), "cd.git");
+        File stCache = new File(preferences.get("basedir", null), "soundtrack.git");
+        File destination = new File(preferences.get("basedir", null), "working");
+
+        TaskProgress oraFilesReadyTask;
+        if (preferences.getBoolean("buildFromSources", true)) {
+            TaskProgress downloadOraSourceTask = new GITUpdateTask("Open RA (download sources)", oraSourceCache, "https://github.com/DoGyAUT/OpenRA.git", Arrays.asList());
+            TaskProgress checkoutOraSourceTask = new GITCheckoutTask("Open RA (checkout sources)", oraSourceCache, destination, "cd", "refs/remotes/origin/cd", Arrays.asList(downloadOraSourceTask)); // TODO: Use preferences.
+            TaskProgress downloadAsSourceTask = new GITUpdateTask("AS (download sources)", asCache, "https://github.com/DoGyAUT/OpenRA.Mods.AS.git", Arrays.asList());
+            TaskProgress checkoutAsSourceTask = new GITCheckoutTask("AS (checkout sources)", asCache, new File(destination, "OpenRA.Mods.AS"), "master", "refs/remotes/origin/master", Arrays.asList(downloadAsSourceTask, checkoutOraSourceTask)); // TODO: Use preferences.
+            TaskProgress compileOraSourceTask = new RunExternalCommand("Open RA (compile sources)", destination, Arrays.asList(preferences.get("commandMake", "make"), "all"), code -> code == 0 ? RunExternalCommand.ResultAction.SUCCEED : code == 2 ? RunExternalCommand.ResultAction.RETRY : RunExternalCommand.ResultAction.FAIL, Arrays.asList(checkoutOraSourceTask, checkoutAsSourceTask));
+
+            oraFilesReadyTask = checkoutOraSourceTask;
+            progressTable.setItems(FXCollections.observableList(new ArrayList<>(Arrays.asList(
+                    downloadOraSourceTask,
+                    checkoutOraSourceTask,
+                    compileOraSourceTask,
+                    downloadAsSourceTask,
+                    checkoutAsSourceTask
+            ))));
+        } else {
+            TaskProgress downloadOraBinaryTask = new GoogleDownloadTask("Open RA (download binaries)", oraBinaryCache, "https://drive.google.com/uc?export=download&id=0B8yS1DvylkfIeGFPaEtla0ItVms", Arrays.asList());
+            TaskProgress extractOraBinaryTask = new ExtractZipTask("Open RA (extract binaries)", oraBinaryCache, destination, 1, Arrays.asList(downloadOraBinaryTask));
+
+            oraFilesReadyTask = extractOraBinaryTask;
+            progressTable.setItems(FXCollections.observableList(new ArrayList<>(Arrays.asList(
+                    downloadOraBinaryTask,
+                    extractOraBinaryTask
+            ))));
+        }
+
+        TaskProgress downloadModTask = new GITUpdateTask("Mod (download)", cdCache, "https://github.com/DoGyAUT/cd.git", Arrays.asList());
+        TaskProgress checkoutModTask = new GITCheckoutTask("Mod (checkout)", cdCache, new File(destination, "mods/cd"), "master", "refs/remotes/origin/master", Arrays.asList(downloadModTask, oraFilesReadyTask)); // TODO: Use preferences.
+        TaskProgress downloadSoundtrackTask = new GITUpdateTask("Soundtrack (download)", stCache, "https://github.com/jrb0001/cdsoundtrack.git", Arrays.asList());
+        TaskProgress checkoutSoundtrackTask = new GITCheckoutTask("Soundtrack (checkout)", stCache, new File(destination, "mods/cd/audio/data/theme"), "master", "refs/remotes/origin/master", Arrays.asList(downloadSoundtrackTask, checkoutModTask)); // TODO: Use preferences.
+        TaskProgress setOptionsTask = new SetOptionsTask("Apply options", new File(destination, "mods/cd"), preferences.get("barMode", "bottombar"), Arrays.asList(checkoutModTask));
+
+        progressTable.getItems().addAll(FXCollections.observableList(Arrays.asList(
+                downloadModTask,
+                checkoutModTask,
+                downloadSoundtrackTask,
+                checkoutSoundtrackTask,
+                setOptionsTask
+        )));
+
+        progressTable.getItems().forEach(task -> new Thread(task, "Task " + task.getName()).start());
+
+        nameColumn.setCellValueFactory(cell -> new ReadOnlyObjectWrapper<>(cell.getValue().getName()));
+        progressColumn.setCellValueFactory(cell -> cell.getValue().progressProperty().asObject());
+
+        progressColumn.setCellFactory(ProgressBarTableCell.forTableColumn());
+
+        nameColumn.prefWidthProperty().bind(progressTable.widthProperty().multiply(0.5));
+        progressColumn.prefWidthProperty().bind(progressTable.widthProperty().multiply(0.4975));
+
+        new Thread(() -> {
+            try {
+                while (progressTable.getItems().stream().anyMatch(task -> task.getProgress() != 1)) {
+                    Thread.sleep(100);
+                }
+            } catch (InterruptedException ex) {
+                Logger.getLogger(UpdateController.class.getName()).log(Level.SEVERE, "Failed to wait for end of all tasks.", ex);
+            }
+
+            Platform.runLater(() -> FXUtils.showScene(application, "/fxml/main.fxml"));
+        }, "Taskwatcher").start();
+    }
+}
