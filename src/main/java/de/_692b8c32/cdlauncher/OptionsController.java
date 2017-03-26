@@ -82,10 +82,16 @@ public class OptionsController implements Initializable {
     }
 
     public File selectDirectory() {
+        File directory = new File(preferences.get("basedir", System.getProperty("java.io.tmpdir")));
+        if (!directory.exists()) {
+            preferences.remove("basedir");
+            directory = new File(preferences.get("basedir", System.getProperty("java.io.tmpdir")));
+        }
+
         DirectoryChooser directoryChooser = new DirectoryChooser();
         directoryChooser.setTitle("Choose directory for temporary files");
-        directoryChooser.setInitialDirectory(new File(preferences.get("basedir", System.getProperty("java.io.tmpdir"))));
-        File directory = directoryChooser.showDialog(null);
+        directoryChooser.setInitialDirectory(directory);
+        directory = directoryChooser.showDialog(null);
 
         if (directory != null) {
             preferences.put("basedir", directory.getAbsolutePath());
