@@ -47,20 +47,21 @@ public class ExtractZipTask extends TaskProgress {
 
         try {
             FileUtils.delete(destinationDir, FileUtils.RECURSIVE | FileUtils.SKIP_MISSING);
-            ZipFile zipFile = new ZipFile(cacheFile);
-            zipFile.stream().filter(entry -> !entry.isDirectory()).forEach(entry -> {
-                try {
-                    String name = entry.getName();
-                    for (int i = 0; i < skipSourceParts; i++) {
-                        name = name.substring(name.indexOf("/"));
+            try (ZipFile zipFile = new ZipFile(cacheFile)) {
+                zipFile.stream().filter(entry -> !entry.isDirectory()).forEach(entry -> {
+                    try {
+                        String name = entry.getName();
+                        for (int i = 0; i < skipSourceParts; i++) {
+                            name = name.substring(name.indexOf("/"));
+                        }
+                        File file = new File(destinationDir, name);
+                        file.getParentFile().mkdirs();
+                        Files.copy(zipFile.getInputStream(entry), file.toPath());
+                    } catch (IOException ex) {
+                        throw new RuntimeException("Failed to extract file from zip", ex);
                     }
-                    File file = new File(destinationDir, name);
-                    file.getParentFile().mkdirs();
-                    Files.copy(zipFile.getInputStream(entry), file.toPath());
-                } catch (IOException ex) {
-                    throw new RuntimeException("Failed to extract file from zip", ex);
-                }
-            });
+                });
+            }
         } catch (IOException ex) {
             throw new RuntimeException("Failed to extract zip", ex);
         }

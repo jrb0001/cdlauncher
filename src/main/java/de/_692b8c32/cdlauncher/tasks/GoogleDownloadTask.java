@@ -20,6 +20,7 @@ package de._692b8c32.cdlauncher.tasks;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
@@ -56,18 +57,22 @@ public class GoogleDownloadTask extends TaskProgress {
             HttpClient client = HttpClients.createDefault();
             String realUrl = null;
             Pattern pattern = Pattern.compile("<a id=\"uc-download-link\" class=\"goog-inline-block jfk-button jfk-button-action\" href=\"([^\"]*)\">");
-            for (String line : new BufferedReader(new InputStreamReader(client.execute(new HttpGet(fileUrl)).getEntity().getContent())).lines().collect(Collectors.toList())) {
-                Matcher matcher = pattern.matcher(line);
-                if (matcher.find()) {
-                    realUrl = fileUrl.substring(0, fileUrl.lastIndexOf('/')) + matcher.group(1).replace("&amp;", "&");
-                    break;
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(client.execute(new HttpGet(fileUrl)).getEntity().getContent()))) {
+                for (String line : reader.lines().collect(Collectors.toList())) {
+                    Matcher matcher = pattern.matcher(line);
+                    if (matcher.find()) {
+                        realUrl = fileUrl.substring(0, fileUrl.lastIndexOf('/')) + matcher.group(1).replace("&amp;", "&");
+                        break;
+                    }
                 }
             }
 
             if (realUrl == null) {
                 throw new RuntimeException("Failed to find real url");
             } else {
-                Files.copy(client.execute(new HttpGet(realUrl)).getEntity().getContent(), cacheFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                try (InputStream stream = client.execute(new HttpGet(realUrl)).getEntity().getContent()) {
+                    Files.copy(stream, cacheFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+                }
             }
         } catch (IOException ex) {
             Logger.getLogger(GoogleDownloadTask.class.getName()).log(Level.SEVERE, null, ex);

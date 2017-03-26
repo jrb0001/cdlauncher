@@ -101,17 +101,23 @@ public class UpdateController implements Initializable {
 
         TaskProgress downloadModTask = new GITUpdateTask("Mod (download)", cdCache, "https://github.com/DoGyAUT/cd.git", Arrays.asList());
         TaskProgress checkoutModTask = new GITCheckoutTask("Mod (checkout)", cdCache, new File(destination, "mods/cd"), "master", "refs/remotes/origin/master", Arrays.asList(downloadModTask, oraFilesReadyTask)); // TODO: Use preferences.
-        TaskProgress downloadSoundtrackTask = new GITUpdateTask("Soundtrack (download)", stCache, "https://github.com/jrb0001/cdsoundtrack.git", Arrays.asList());
-        TaskProgress checkoutSoundtrackTask = new GITCheckoutTask("Soundtrack (checkout)", stCache, new File(destination, "mods/cd/audio/data/theme"), "master", "refs/remotes/origin/master", Arrays.asList(downloadSoundtrackTask, checkoutModTask)); // TODO: Use preferences.
         TaskProgress setOptionsTask = new SetOptionsTask("Apply options", new File(destination, "mods/cd"), preferences.get("barMode", "bottombar"), Arrays.asList(checkoutModTask));
 
         progressTable.getItems().addAll(FXCollections.observableList(Arrays.asList(
                 downloadModTask,
                 checkoutModTask,
-                downloadSoundtrackTask,
-                checkoutSoundtrackTask,
                 setOptionsTask
         )));
+
+        if (preferences.getBoolean("downloadSoundtrack", true)) {
+            TaskProgress downloadSoundtrackTask = new GITUpdateTask("Soundtrack (download)", stCache, "https://github.com/jrb0001/cdsoundtrack.git", Arrays.asList());
+            TaskProgress checkoutSoundtrackTask = new GITCheckoutTask("Soundtrack (checkout)", stCache, new File(destination, "mods/cd/audio/data/theme"), "master", "refs/remotes/origin/master", Arrays.asList(downloadSoundtrackTask, checkoutModTask)); // TODO: Use preferences.
+
+            progressTable.getItems().addAll(FXCollections.observableList(Arrays.asList(
+                    downloadSoundtrackTask,
+                    checkoutSoundtrackTask
+            )));
+        }
 
         progressTable.getItems().forEach(task -> new Thread(task, "Task " + task.getName()).start());
 
