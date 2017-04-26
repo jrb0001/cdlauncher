@@ -94,6 +94,7 @@ public class LauncherApplication extends Application {
                 alert.getDialogPane().setContent(expContent);
 
                 alert.showAndWait();
+                System.exit(0);
             });
         });
     }

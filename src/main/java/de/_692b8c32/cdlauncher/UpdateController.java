@@ -67,7 +67,6 @@ public class UpdateController implements Initializable {
     public void initialize(URL location, ResourceBundle resources) {
         File oraSourceCache = new File(preferences.get("basedir", null), "ora.git");
         File oraBinaryCache = new File(preferences.get("basedir", null), "ora.zip");
-        File asCache = new File(preferences.get("basedir", null), "as.git");
         File cdCache = new File(preferences.get("basedir", null), "cd.git");
         File stCache = new File(preferences.get("basedir", null), "soundtrack.git");
         File destination = new File(preferences.get("basedir", null), "working");
@@ -76,17 +75,13 @@ public class UpdateController implements Initializable {
         if (preferences.getBoolean("buildFromSources", true)) {
             TaskProgress downloadOraSourceTask = new GITUpdateTask("Open RA (download sources)", oraSourceCache, "https://github.com/DoGyAUT/OpenRA.git", Arrays.asList());
             TaskProgress checkoutOraSourceTask = new GITCheckoutTask("Open RA (checkout sources)", oraSourceCache, destination, "cd", "refs/remotes/origin/cd", Arrays.asList(downloadOraSourceTask)); // TODO: Use preferences.
-            TaskProgress downloadAsSourceTask = new GITUpdateTask("AS (download sources)", asCache, "https://github.com/DoGyAUT/OpenRA.Mods.AS.git", Arrays.asList());
-            TaskProgress checkoutAsSourceTask = new GITCheckoutTask("AS (checkout sources)", asCache, new File(destination, "OpenRA.Mods.AS"), "master", "refs/remotes/origin/master", Arrays.asList(downloadAsSourceTask, checkoutOraSourceTask)); // TODO: Use preferences.
-            TaskProgress compileOraSourceTask = new RunExternalCommand("Open RA (compile sources)", destination, Arrays.asList(preferences.get("commandMake", "make"), "all"), code -> code == 0 ? RunExternalCommand.ResultAction.SUCCEED : code == 2 ? RunExternalCommand.ResultAction.RETRY : RunExternalCommand.ResultAction.FAIL, Arrays.asList(checkoutOraSourceTask, checkoutAsSourceTask));
+            TaskProgress compileOraSourceTask = new RunExternalCommand("Open RA (compile sources)", destination, Arrays.asList(preferences.get("commandMake", "make"), "all"), code -> code == 0 ? RunExternalCommand.ResultAction.SUCCEED : code == 2 ? RunExternalCommand.ResultAction.RETRY : RunExternalCommand.ResultAction.FAIL, Arrays.asList(checkoutOraSourceTask));
 
             oraFilesReadyTask = checkoutOraSourceTask;
             progressTable.setItems(FXCollections.observableList(new ArrayList<>(Arrays.asList(
                     downloadOraSourceTask,
                     checkoutOraSourceTask,
-                    compileOraSourceTask,
-                    downloadAsSourceTask,
-                    checkoutAsSourceTask
+                    compileOraSourceTask
             ))));
         } else {
             TaskProgress downloadOraBinaryTask = new GoogleDownloadTask("Open RA (download binaries)", oraBinaryCache, "https://drive.google.com/uc?export=download&id=0B8yS1DvylkfIeGFPaEtla0ItVms", Arrays.asList());
