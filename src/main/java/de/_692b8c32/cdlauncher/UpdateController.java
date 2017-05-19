@@ -20,7 +20,7 @@ package de._692b8c32.cdlauncher;
 import de._692b8c32.cdlauncher.tasks.ExtractZipTask;
 import de._692b8c32.cdlauncher.tasks.GITCheckoutTask;
 import de._692b8c32.cdlauncher.tasks.GITUpdateTask;
-import de._692b8c32.cdlauncher.tasks.GoogleDownloadTask;
+import de._692b8c32.cdlauncher.tasks.GithubReleasesDownloadTask;
 import de._692b8c32.cdlauncher.tasks.RunExternalCommand;
 import de._692b8c32.cdlauncher.tasks.SetOptionsTask;
 import de._692b8c32.cdlauncher.tasks.TaskProgress;
@@ -84,8 +84,8 @@ public class UpdateController implements Initializable {
                     compileOraSourceTask
             ))));
         } else {
-            TaskProgress downloadOraBinaryTask = new GoogleDownloadTask("Open RA (download binaries)", oraBinaryCache, "https://drive.google.com/uc?export=download&id=0B8yS1DvylkfIeGFPaEtla0ItVms", Arrays.asList());
-            TaskProgress extractOraBinaryTask = new ExtractZipTask("Open RA (extract binaries)", oraBinaryCache, destination, 1, Arrays.asList(downloadOraBinaryTask));
+            TaskProgress downloadOraBinaryTask = new GithubReleasesDownloadTask("Open RA (download binaries)", oraBinaryCache, "https://github.com/DoGyAUT/OpenRA/releases/", null, Arrays.asList());
+            TaskProgress extractOraBinaryTask = new ExtractZipTask("Open RA (extract binaries)", oraBinaryCache, destination, 0, Arrays.asList(downloadOraBinaryTask));
 
             oraFilesReadyTask = extractOraBinaryTask;
             progressTable.setItems(FXCollections.observableList(new ArrayList<>(Arrays.asList(
