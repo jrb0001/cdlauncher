@@ -25,11 +25,10 @@ import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import javafx.beans.property.StringProperty;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.HttpClients;
@@ -42,9 +41,9 @@ public class GithubReleasesDownloadTask extends TaskProgress {
 
     private final File cacheFile;
     private final String baseUrl;
-    private final String version;
+    private final StringProperty version;
 
-    public GithubReleasesDownloadTask(String name, File cacheFile, String baseUrl, String version, List<TaskProgress> dependencies) {
+    public GithubReleasesDownloadTask(String name, File cacheFile, String baseUrl, StringProperty version, List<TaskProgress> dependencies) {
         super(name, dependencies);
         this.cacheFile = cacheFile;
         this.baseUrl = baseUrl;
@@ -58,7 +57,7 @@ public class GithubReleasesDownloadTask extends TaskProgress {
         try {
             String realUrl = null;
             HttpClient client = HttpClients.createDefault();
-            if (version == null) {
+            if (version.getValue() == null) {
                 Pattern pattern = Pattern.compile("<ul class=\"release-downloads\"> <li> <a href=\"([^\"]*)\" rel=\"nofollow\">");
                 try (BufferedReader reader = new BufferedReader(new InputStreamReader(client.execute(new HttpGet(baseUrl + "latest")).getEntity().getContent()))) {
                     Matcher matcher = pattern.matcher(reader.lines().collect(Collectors.joining(" ")).replace("  ", ""));
@@ -67,7 +66,7 @@ public class GithubReleasesDownloadTask extends TaskProgress {
                     }
                 }
             } else {
-                realUrl = baseUrl + "download/" + version + "/" + version + ".zip";
+                realUrl = baseUrl + "download/" + version.getValue() + "/OpenRA-" + version.getValue() + ".zip";
             }
 
             if (realUrl == null) {
@@ -78,7 +77,7 @@ public class GithubReleasesDownloadTask extends TaskProgress {
                 }
             }
         } catch (IOException ex) {
-            Logger.getLogger(GithubReleasesDownloadTask.class.getName()).log(Level.SEVERE, null, ex);
+            throw new RuntimeException("Could not download data", ex);
         }
     }
 }

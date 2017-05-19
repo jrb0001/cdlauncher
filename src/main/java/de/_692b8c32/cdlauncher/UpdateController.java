@@ -21,6 +21,7 @@ import de._692b8c32.cdlauncher.tasks.ExtractZipTask;
 import de._692b8c32.cdlauncher.tasks.GITCheckoutTask;
 import de._692b8c32.cdlauncher.tasks.GITUpdateTask;
 import de._692b8c32.cdlauncher.tasks.GithubReleasesDownloadTask;
+import de._692b8c32.cdlauncher.tasks.ReadDependencyVersionTask;
 import de._692b8c32.cdlauncher.tasks.RunExternalCommand;
 import de._692b8c32.cdlauncher.tasks.SetOptionsTask;
 import de._692b8c32.cdlauncher.tasks.TaskProgress;
@@ -34,7 +35,9 @@ import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.beans.binding.When;
 import javafx.beans.property.ReadOnlyObjectWrapper;
+import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
@@ -71,10 +74,14 @@ public class UpdateController implements Initializable {
         File stCache = new File(preferences.get("basedir", null), "soundtrack.git");
         File destination = new File(preferences.get("basedir", null), "working");
 
+        TaskProgress downloadModTask = new GITUpdateTask("Mod (download)", cdCache, "https://github.com/DoGyAUT/cd.git", Arrays.asList());
+        TaskProgress preCheckoutModTask = new GITCheckoutTask("Mod (precheckout)", cdCache, null, "master", preferences.get("modRef", "refs/remotes/origin/master"), Arrays.asList(downloadModTask));
+        ReadDependencyVersionTask readDependencyVersionTask = new ReadDependencyVersionTask("Mod (read dependency version)", cdCache, Arrays.asList(preCheckoutModTask));
+
         TaskProgress oraFilesReadyTask;
         if (preferences.getBoolean("buildFromSources", true)) {
             TaskProgress downloadOraSourceTask = new GITUpdateTask("Open RA (download sources)", oraSourceCache, "https://github.com/DoGyAUT/OpenRA.git", Arrays.asList());
-            TaskProgress checkoutOraSourceTask = new GITCheckoutTask("Open RA (checkout sources)", oraSourceCache, destination, "cd", "refs/remotes/origin/cd", Arrays.asList(downloadOraSourceTask)); // TODO: Use preferences.
+            TaskProgress checkoutOraSourceTask = new GITCheckoutTask("Open RA (checkout sources)", oraSourceCache, destination, "cd", new When(readDependencyVersionTask.versionProperty().isNotNull()).then(new ReadOnlyStringWrapper("refs/tags/").concat(readDependencyVersionTask.versionProperty())).otherwise("refs/remotes/origin/cd"), Arrays.asList(downloadOraSourceTask, readDependencyVersionTask));
             TaskProgress compileOraSourceTask = new RunExternalCommand("Open RA (compile sources)", destination, Arrays.asList(preferences.get("commandMake", "make"), "all"), code -> code == 0 ? RunExternalCommand.ResultAction.SUCCEED : code == 2 ? RunExternalCommand.ResultAction.RETRY : RunExternalCommand.ResultAction.FAIL, Arrays.asList(checkoutOraSourceTask));
 
             oraFilesReadyTask = checkoutOraSourceTask;
@@ -84,7 +91,7 @@ public class UpdateController implements Initializable {
                     compileOraSourceTask
             ))));
         } else {
-            TaskProgress downloadOraBinaryTask = new GithubReleasesDownloadTask("Open RA (download binaries)", oraBinaryCache, "https://github.com/DoGyAUT/OpenRA/releases/", null, Arrays.asList());
+            TaskProgress downloadOraBinaryTask = new GithubReleasesDownloadTask("Open RA (download binaries)", oraBinaryCache, "https://github.com/DoGyAUT/OpenRA/releases/", readDependencyVersionTask.versionProperty(), Arrays.asList(readDependencyVersionTask));
             TaskProgress extractOraBinaryTask = new ExtractZipTask("Open RA (extract binaries)", oraBinaryCache, destination, 0, Arrays.asList(downloadOraBinaryTask));
 
             oraFilesReadyTask = extractOraBinaryTask;
@@ -94,12 +101,13 @@ public class UpdateController implements Initializable {
             ))));
         }
 
-        TaskProgress downloadModTask = new GITUpdateTask("Mod (download)", cdCache, "https://github.com/DoGyAUT/cd.git", Arrays.asList());
-        TaskProgress checkoutModTask = new GITCheckoutTask("Mod (checkout)", cdCache, new File(destination, "mods/cd"), "master", "refs/remotes/origin/master", Arrays.asList(downloadModTask, oraFilesReadyTask)); // TODO: Use preferences.
+        TaskProgress checkoutModTask = new GITCheckoutTask("Mod (checkout)", cdCache, new File(destination, "mods/cd"), "master", preferences.get("modRef", "refs/remotes/origin/master"), Arrays.asList(preCheckoutModTask, oraFilesReadyTask));
         TaskProgress setOptionsTask = new SetOptionsTask("Apply options", new File(destination, "mods/cd"), preferences.get("barMode", "bottombar"), Arrays.asList(checkoutModTask));
 
         progressTable.getItems().addAll(FXCollections.observableList(Arrays.asList(
                 downloadModTask,
+                preCheckoutModTask,
+                readDependencyVersionTask,
                 checkoutModTask,
                 setOptionsTask
         )));

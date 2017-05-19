@@ -47,6 +47,8 @@ public class OptionsController implements Initializable {
     private CheckBox rightBar;
     @FXML
     private CheckBox downloadSoundtrack;
+    @FXML
+    private TextField modRef;
 
     private final Application application;
     private final Preferences preferences;
@@ -63,6 +65,7 @@ public class OptionsController implements Initializable {
         commandMono.setText(preferences.get("commandMono", "mono"));
         rightBar.setSelected(preferences.get("barMode", "bottombar").equals("rightbar"));
         downloadSoundtrack.setSelected(preferences.getBoolean("downloadSoundtrack", true));
+        modRef.setText(preferences.get("modRef", "refs/remotes/origin/master"));
 
         commandMake.disableProperty().bind(buildFromSources.selectedProperty().not());
     }
@@ -77,6 +80,7 @@ public class OptionsController implements Initializable {
         preferences.put("commandMono", commandMono.getText());
         preferences.put("barMode", rightBar.isSelected() ? "rightbar" : "bottombar");
         preferences.putBoolean("downloadSoundtrack", downloadSoundtrack.isSelected());
+        preferences.put("modRef", modRef.getText());
 
         FXUtils.showScene(application, "/fxml/main.fxml");
     }

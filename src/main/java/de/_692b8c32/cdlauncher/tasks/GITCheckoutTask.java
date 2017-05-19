@@ -22,6 +22,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
+import javafx.beans.binding.StringExpression;
+import javafx.beans.property.ReadOnlyStringWrapper;
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.ResetCommand;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -37,10 +39,14 @@ public class GITCheckoutTask extends TaskProgress {
 
     private final File cacheDir;
     private final File destinationDir;
-    private final String startPoint;
+    private final StringExpression startPoint;
     private final String branch;
 
     public GITCheckoutTask(String name, File cacheDir, File destinationDir, String branch, String startPoint, List<TaskProgress> dependencies) {
+        this(name, cacheDir, destinationDir, branch, new ReadOnlyStringWrapper(startPoint), dependencies);
+    }
+
+    public GITCheckoutTask(String name, File cacheDir, File destinationDir, String branch, StringExpression startPoint, List<TaskProgress> dependencies) {
         super(name, dependencies);
         this.cacheDir = cacheDir;
         this.destinationDir = destinationDir;
@@ -55,17 +61,19 @@ public class GITCheckoutTask extends TaskProgress {
         try {
             Git git = Git.open(cacheDir);
             git.reset().setMode(ResetCommand.ResetType.HARD).call();
-            git.checkout().setAllPaths(true).setForce(true).setName(branch).setStartPoint(startPoint).call();
+            git.checkout().setAllPaths(true).setForce(true).setName(branch).setStartPoint(startPoint.getValue()).call();
 
-            FileUtils.delete(destinationDir, FileUtils.RECURSIVE | FileUtils.SKIP_MISSING);
-            destinationDir.mkdirs();
-            Files.list(cacheDir.toPath()).filter(path -> !(".git".equals(path.getFileName().toString()))).forEach(path -> {
-                try {
-                    Files.move(path, destinationDir.toPath().resolve(path.getFileName()), StandardCopyOption.ATOMIC_MOVE);
-                } catch (IOException ex) {
-                    throw new RuntimeException("Failed to move " + path.getFileName(), ex);
-                }
-            });
+            if (destinationDir != null) {
+                FileUtils.delete(destinationDir, FileUtils.RECURSIVE | FileUtils.SKIP_MISSING);
+                destinationDir.mkdirs();
+                Files.list(cacheDir.toPath()).filter(path -> !(".git".equals(path.getFileName().toString()))).forEach(path -> {
+                    try {
+                        Files.move(path, destinationDir.toPath().resolve(path.getFileName()), StandardCopyOption.ATOMIC_MOVE);
+                    } catch (IOException ex) {
+                        throw new RuntimeException("Failed to move " + path.getFileName(), ex);
+                    }
+                });
+            }
         } catch (RepositoryNotFoundException | InvalidRemoteException ex) {
             throw new RuntimeException("Could not find repository");
         } catch (GitAPIException | IOException ex) {

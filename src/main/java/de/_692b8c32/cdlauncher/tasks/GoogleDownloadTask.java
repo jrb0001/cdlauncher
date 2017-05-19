@@ -25,8 +25,6 @@ import java.io.InputStreamReader;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -75,7 +73,7 @@ public class GoogleDownloadTask extends TaskProgress {
                 }
             }
         } catch (IOException ex) {
-            Logger.getLogger(GoogleDownloadTask.class.getName()).log(Level.SEVERE, null, ex);
+            throw new RuntimeException("Could not download data", ex);
         }
     }
 }
