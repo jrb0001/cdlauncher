@@ -18,48 +18,56 @@
 package de._692b8c32.cdlauncher.tasks;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.util.List;
 import java.util.stream.Collectors;
-import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 
 /**
  *
  * @author Jean-Rémy Buchs <jrb0001@692b8c32.de>
  */
-public class ReadDependencyVersionTask extends TaskProgress {
+public class WriteBundledModVersionTask extends TaskProgress {
 
-    private final File modDir;
+    private final File modsDir;
 
-    private final StringProperty version = new SimpleStringProperty();
+    private final StringProperty version;
 
-    public ReadDependencyVersionTask(String name, File modDir, List<TaskProgress> dependencies) {
+    public WriteBundledModVersionTask(String name, File modsDir, StringProperty version, List<TaskProgress> dependencies) {
         super(name, dependencies);
 
-        this.modDir = modDir;
+        this.modsDir = modsDir;
+        this.version = version;
     }
 
     @Override
     protected void doWork() {
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(new File(modDir, "mod.yaml"))))) {
-            List<String> lines = reader.lines().collect(Collectors.toList());
-            boolean found = false;
-            for (int i = 0; i < lines.size(); i++) {
-                if (lines.get(i).startsWith("RequiresMods:")) {
-                    found = true;
-                } else if (found && !lines.get(i).startsWith("\t")) {
-                    break;
-                } else if (found && lines.get(i).contains(":")) {
-                    version.setValue(lines.get(i).trim().split(":")[1].trim());
-                    break;
-                }
+        for (File modDir : modsDir.listFiles()) {
+            if (!new File(modDir, "mod.yaml").exists()) {
+                continue;
+            }
+            processMod(modDir);
+        }
+    }
+
+    private void processMod(File modDir) {
+        try {
+            // File content can't be written while it is being read.
+            String fixedFile;
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(new File(modDir, "mod.yaml"))))) {
+                fixedFile = reader.lines().map(line -> line.replace("{DEV_VERSION}", versionProperty().getValue())).collect(Collectors.joining("\n"));
+            }
+            try (BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(new File(modDir, "mod.yaml"))))) {
+                writer.write(fixedFile);
             }
         } catch (IOException ex) {
-            throw new RuntimeException("Failed to read dependency version", ex);
+            throw new RuntimeException("Failed to write bundled mod version for " + modDir.getName(), ex);
         }
     }
 

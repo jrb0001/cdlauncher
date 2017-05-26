@@ -22,9 +22,11 @@ import de._692b8c32.cdlauncher.tasks.GITCheckoutTask;
 import de._692b8c32.cdlauncher.tasks.GITUpdateTask;
 import de._692b8c32.cdlauncher.tasks.GithubReleasesDownloadTask;
 import de._692b8c32.cdlauncher.tasks.ReadDependencyVersionTask;
+import de._692b8c32.cdlauncher.tasks.RegisterModMetadataTask;
 import de._692b8c32.cdlauncher.tasks.RunExternalCommand;
 import de._692b8c32.cdlauncher.tasks.SetOptionsTask;
 import de._692b8c32.cdlauncher.tasks.TaskProgress;
+import de._692b8c32.cdlauncher.tasks.WriteBundledModVersionTask;
 import java.io.File;
 import java.net.URL;
 import java.util.ArrayList;
@@ -79,22 +81,27 @@ public class UpdateController implements Initializable {
         ReadDependencyVersionTask readDependencyVersionTask = new ReadDependencyVersionTask("Mod (read dependency version)", cdCache, Arrays.asList(preCheckoutModTask));
 
         TaskProgress oraFilesReadyTask;
+        TaskProgress oraInstallationReadyTask;
         if (preferences.getBoolean("buildFromSources", true)) {
             TaskProgress downloadOraSourceTask = new GITUpdateTask("Open RA (download sources)", oraSourceCache, "https://github.com/DoGyAUT/OpenRA.git", Arrays.asList());
             TaskProgress checkoutOraSourceTask = new GITCheckoutTask("Open RA (checkout sources)", oraSourceCache, destination, "cd", new When(readDependencyVersionTask.versionProperty().isNotNull()).then(new ReadOnlyStringWrapper("refs/tags/").concat(readDependencyVersionTask.versionProperty())).otherwise("refs/remotes/origin/cd"), Arrays.asList(downloadOraSourceTask, readDependencyVersionTask));
             TaskProgress compileOraSourceTask = new RunExternalCommand("Open RA (compile sources)", destination, Arrays.asList(preferences.get("commandMake", "make"), "all"), code -> code == 0 ? RunExternalCommand.ResultAction.SUCCEED : code == 2 ? RunExternalCommand.ResultAction.RETRY : RunExternalCommand.ResultAction.FAIL, Arrays.asList(checkoutOraSourceTask));
+            TaskProgress writeBundledModVersionTask = new WriteBundledModVersionTask("Open RA (set version of bundled mods)", new File(destination, "mods"), readDependencyVersionTask.versionProperty(), Arrays.asList(checkoutOraSourceTask, compileOraSourceTask, readDependencyVersionTask));
 
             oraFilesReadyTask = checkoutOraSourceTask;
+            oraInstallationReadyTask = writeBundledModVersionTask;
             progressTable.setItems(FXCollections.observableList(new ArrayList<>(Arrays.asList(
                     downloadOraSourceTask,
                     checkoutOraSourceTask,
-                    compileOraSourceTask
+                    compileOraSourceTask,
+                    writeBundledModVersionTask
             ))));
         } else {
             TaskProgress downloadOraBinaryTask = new GithubReleasesDownloadTask("Open RA (download binaries)", oraBinaryCache, "https://github.com/DoGyAUT/OpenRA/releases/", readDependencyVersionTask.versionProperty(), Arrays.asList(readDependencyVersionTask));
             TaskProgress extractOraBinaryTask = new ExtractZipTask("Open RA (extract binaries)", oraBinaryCache, destination, 0, Arrays.asList(downloadOraBinaryTask));
 
             oraFilesReadyTask = extractOraBinaryTask;
+            oraInstallationReadyTask = extractOraBinaryTask;
             progressTable.setItems(FXCollections.observableList(new ArrayList<>(Arrays.asList(
                     downloadOraBinaryTask,
                     extractOraBinaryTask
@@ -121,6 +128,9 @@ public class UpdateController implements Initializable {
                     checkoutSoundtrackTask
             )));
         }
+
+        TaskProgress registerModMetadataTask = new RegisterModMetadataTask("Register mod metadata", destination, preferences, Arrays.asList(setOptionsTask, oraInstallationReadyTask));
+        progressTable.getItems().add(registerModMetadataTask);
 
         progressTable.getItems().forEach(task -> new Thread(task, "Task " + task.getName()).start());
 
