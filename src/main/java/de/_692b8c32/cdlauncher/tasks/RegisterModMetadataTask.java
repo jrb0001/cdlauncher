@@ -59,7 +59,7 @@ public class RegisterModMetadataTask extends TaskProgress {
                 p = new ProcessBuilder(preferences.get("commandMono", "mono"), "OpenRA.Game.exe", "Game.Mod=" + name).directory(new File(preferences.get("basedir", null), "working")).inheritIO().start();
             }
 
-            p.waitFor(2, TimeUnit.SECONDS);
+            p.waitFor(5, TimeUnit.SECONDS);
             p.destroyForcibly();
         } catch (IOException | InterruptedException ex) {
             throw new RuntimeException("Failed to register mod " + name, ex);
