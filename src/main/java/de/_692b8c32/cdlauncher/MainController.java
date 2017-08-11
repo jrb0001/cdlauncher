@@ -81,6 +81,7 @@ public class MainController implements Initializable {
 
             if (System.getProperty("os.name").toLowerCase().contains("win")) {
                 preferences.put("commandMono", "");
+                preferences.put("commandMake", "");
             }
         }
     }
