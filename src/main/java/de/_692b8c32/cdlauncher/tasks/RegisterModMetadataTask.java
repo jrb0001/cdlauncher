@@ -17,12 +17,13 @@
  */
 package de._692b8c32.cdlauncher.tasks;
 
+import de._692b8c32.cdlauncher.OraUtils;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import java.util.prefs.Preferences;
 
 /**
@@ -52,16 +53,10 @@ public class RegisterModMetadataTask extends TaskProgress {
 
     private void registerMod(String name) {
         try {
-            Process p;
-            if (preferences.get("commandMono", "mono").isEmpty()) {
-                p = new ProcessBuilder(new File(preferences.get("basedir", null), "working").getAbsolutePath() + "/" + "OpenRA.Game.exe", "Game.Mod=" + name).directory(new File(preferences.get("basedir", null), "working")).inheritIO().start();
-            } else {
-                p = new ProcessBuilder(preferences.get("commandMono", "mono"), "OpenRA.Game.exe", "Game.Mod=" + name).directory(new File(preferences.get("basedir", null), "working")).inheritIO().start();
-            }
-
-            p.waitFor(5, TimeUnit.SECONDS);
-            p.destroyForcibly();
-        } catch (IOException | InterruptedException ex) {
+            String launchpath = new File(preferences.get("basedir", null), "working").getAbsolutePath() + "/OpenRA.Game.exe";
+            Process p = OraUtils.launchUtility(name, Arrays.asList("--register-mod", launchpath, "user"), preferences);
+            p.waitFor();
+        } catch (InterruptedException ex) {
             throw new RuntimeException("Failed to register mod " + name, ex);
         }
     }

@@ -74,6 +74,7 @@ public class GITCheckoutTask extends TaskProgress {
                     }
                 });
             }
+            git.close();
         } catch (RepositoryNotFoundException | InvalidRemoteException ex) {
             throw new RuntimeException("Could not find repository");
         } catch (GitAPIException | IOException ex) {

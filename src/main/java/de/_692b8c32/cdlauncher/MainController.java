@@ -40,6 +40,10 @@ import javafx.scene.web.WebView;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.HttpClients;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.w3c.dom.events.EventTarget;
+import org.w3c.dom.html.HTMLAnchorElement;
 
 /**
  *
@@ -93,11 +97,24 @@ public class MainController implements Initializable {
             builder.append("* { color: white; background-color: black; }");
             builder.append("img { max-height: 50px; float: left; margin-right: 5px; margin-top: 20px; }");
             builder.append("p { margin-top: -30px; margin-bottom: 20px; min-height: 70px; }");
+            builder.append("a { text-decoration: none; }");
             builder.append("</style>");
             for (SyndEntry entry : feed.getEntries()) {
-                builder.append("<h2>").append(entry.getTitle()).append("</h2>");
-                builder.append("<p>").append(entry.getDescription().getValue()).append("</p>");
+                builder.append("<a href='").append(entry.getLink()).append("' target='_blank'><h2>").append(entry.getTitle()).append("</h2>");
+                builder.append("<p>").append(entry.getDescription().getValue()).append("</p></a>");
             }
+
+            news.getEngine().documentProperty().addListener((document, oldValue, newValue) -> {
+                NodeList nodeList = newValue.getElementsByTagName("a");
+                for (int i = 0; i < nodeList.getLength(); i++) {
+                    Node node = nodeList.item(i);
+                    EventTarget eventTarget = (EventTarget) node;
+                    eventTarget.addEventListener("click", evt -> {
+                        application.getHostServices().showDocument(((HTMLAnchorElement) evt.getCurrentTarget()).getHref());
+                        evt.preventDefault();
+                    }, false);
+                }
+            });
 
             news.getEngine().loadContent(builder.toString());
         } catch (IOException | IllegalArgumentException | FeedException ex) {
@@ -114,14 +131,10 @@ public class MainController implements Initializable {
     }
 
     public void launch() {
-        try {
-            if (preferences.get("commandMono", "mono").isEmpty()) {
-                new ProcessBuilder(new File(preferences.get("basedir", null), "working").getAbsolutePath() + "/" + "OpenRA.Game.exe", "Game.Mod=cd").directory(new File(preferences.get("basedir", null), "working")).inheritIO().start();
-            } else {
-                new ProcessBuilder(preferences.get("commandMono", "mono"), "OpenRA.Game.exe", "Game.Mod=cd").directory(new File(preferences.get("basedir", null), "working")).inheritIO().start();
-            }
-        } catch (IOException ex) {
-            throw new RuntimeException("Failed to launch ora", ex);
+        if (new File(new File(preferences.get("basedir", null), "working").getAbsolutePath(), "OpenRA.Game.exe").exists()) {
+            OraUtils.launchOpenRA("cd", preferences);
+        } else {
+            update();
         }
     }
 

@@ -85,7 +85,8 @@ public class UpdateController implements Initializable {
         if (preferences.getBoolean("buildFromSources", true)) {
             TaskProgress downloadOraSourceTask = new GITUpdateTask("Open RA (download sources)", oraSourceCache, "https://github.com/DoGyAUT/OpenRA.git", Arrays.asList());
             TaskProgress checkoutOraSourceTask = new GITCheckoutTask("Open RA (checkout sources)", oraSourceCache, destination, "cd", new When(readDependencyVersionTask.versionProperty().isNotNull()).then(new ReadOnlyStringWrapper("refs/tags/").concat(readDependencyVersionTask.versionProperty())).otherwise("refs/remotes/origin/cd"), Arrays.asList(downloadOraSourceTask, readDependencyVersionTask));
-            TaskProgress compileOraSourceTask = new RunExternalCommand("Open RA (compile sources)", destination, Arrays.asList(preferences.get("commandMake", "make"), "all"), code -> code == 0 ? RunExternalCommand.ResultAction.SUCCEED : code == 2 ? RunExternalCommand.ResultAction.RETRY : RunExternalCommand.ResultAction.FAIL, Arrays.asList(checkoutOraSourceTask));
+            TaskProgress downloadOraSourceDependenciesTask = new RunExternalCommand("Open RA (download dependencies)", destination, Arrays.asList(preferences.get("commandMake", "make"), "dependencies"), code -> code == 0 ? RunExternalCommand.ResultAction.SUCCEED : code == 2 ? RunExternalCommand.ResultAction.RETRY : RunExternalCommand.ResultAction.FAIL, Arrays.asList(checkoutOraSourceTask));
+            TaskProgress compileOraSourceTask = new RunExternalCommand("Open RA (compile sources)", destination, Arrays.asList(preferences.get("commandMake", "make"), "all"), code -> code == 0 ? RunExternalCommand.ResultAction.SUCCEED : code == 2 ? RunExternalCommand.ResultAction.RETRY : RunExternalCommand.ResultAction.FAIL, Arrays.asList(checkoutOraSourceTask, downloadOraSourceDependenciesTask));
             TaskProgress writeBundledModVersionTask = new WriteBundledModVersionTask("Open RA (set version of bundled mods)", new File(destination, "mods"), readDependencyVersionTask.versionProperty(), Arrays.asList(checkoutOraSourceTask, compileOraSourceTask, readDependencyVersionTask));
 
             oraFilesReadyTask = checkoutOraSourceTask;
@@ -93,6 +94,7 @@ public class UpdateController implements Initializable {
             progressTable.setItems(FXCollections.observableList(new ArrayList<>(Arrays.asList(
                     downloadOraSourceTask,
                     checkoutOraSourceTask,
+                    downloadOraSourceDependenciesTask,
                     compileOraSourceTask,
                     writeBundledModVersionTask
             ))));

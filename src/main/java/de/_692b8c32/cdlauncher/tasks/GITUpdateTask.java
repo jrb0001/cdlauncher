@@ -50,12 +50,15 @@ public class GITUpdateTask extends TaskProgress implements ProgressMonitor {
     @Override
     public void doWork() {
         try {
+            Git git;
             if (!cacheDir.exists()) {
                 cacheDir.mkdirs();
-                Git.cloneRepository().setURI(repoUri).setDirectory(cacheDir).setNoCheckout(true).setProgressMonitor(this).call();
+                git = Git.cloneRepository().setURI(repoUri).setDirectory(cacheDir).setNoCheckout(true).setProgressMonitor(this).call();
             } else {
-                Git.open(cacheDir).fetch().setProgressMonitor(this).call();
+                git = Git.open(cacheDir);
+                git.fetch().setProgressMonitor(this).call();
             }
+            git.close();
         } catch (RepositoryNotFoundException | InvalidRemoteException ex) {
             Logger.getLogger(GITUpdateTask.class.getName()).log(Level.SEVERE, "Could not find repository", ex);
             try {
@@ -71,7 +74,7 @@ public class GITUpdateTask extends TaskProgress implements ProgressMonitor {
 
     @Override
     public void start(int totalTasks) {
-        this.totalTasks = totalTasks;
+        this.totalTasks = totalTasks + 1;
     }
 
     @Override
